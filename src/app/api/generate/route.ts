@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
+import { FitnessPlan, UserFormData } from "@/types";
+import { generateStubPlan } from "@/lib/ai/stub";
 
-export async function POST(req) {
+export async function POST(req: Request) {
   try {
-    const body = await req.json();
+    const body: UserFormData = await req.json();
 
     const {
       name,
@@ -17,6 +19,15 @@ export async function POST(req) {
       extras,
     } = body;
 
+    // Check for Stub Mode
+    if (!process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_STUB_MODE === "true") {
+      console.log("Using Stub Mode for Plan Generation");
+      const stubPlan = generateStubPlan(body);
+      // Simulate delay
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      return NextResponse.json(stubPlan);
+    }
+
     // ============================================================
     // STRICT, FORCE-CONSISTENT PROMPT
     // ============================================================
@@ -30,24 +41,30 @@ Do NOT change the schema.
 OUTPUT MUST FOLLOW THIS EXACT STRUCTURE:
 
 {
+  "metadata": {
+    "userName": "${name}",
+    "goal": "${goal}",
+    "generatedAt": "${new Date().toISOString()}"
+  },
   "workoutPlan": [
     {
       "day": "string",
       "exercises": [
         {
           "name": "string",
-          "sets": "string",
+          "sets": 3,
           "reps": "string",
-          "rest": "string"
+          "rest": "string",
+          "notes": "string"
         }
       ]
     }
   ],
   "dietPlan": {
-    "breakfast": [{ "name": "string" }],
-    "lunch": [{ "name": "string" }],
-    "dinner": [{ "name": "string" }],
-    "snacks": [{ "name": "string" }]
+    "breakfast": ["string"],
+    "lunch": ["string"],
+    "dinner": ["string"],
+    "snacks": ["string"]
   },
   "tips": ["string"]
 }
@@ -78,7 +95,7 @@ Extras: ${extras}
     // ============================================================
     const geminiRes = await fetch(
       "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" +
-        process.env.GEMINI_API_KEY,
+      process.env.GEMINI_API_KEY,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -89,10 +106,13 @@ Extras: ${extras}
     );
 
     const raw = await geminiRes.json();
-    console.log("GEMINI RAW:", JSON.stringify(raw, null, 2));
 
-    const aiText =
-      raw?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+    if (!raw?.candidates?.[0]?.content?.parts?.[0]?.text) {
+      console.error("Gemini Error:", raw);
+      throw new Error("Failed to get response from Gemini");
+    }
+
+    const aiText = raw.candidates[0].content.parts[0].text.trim();
 
     // Clean backticks just in case
     const cleaned = aiText
@@ -100,12 +120,10 @@ Extras: ${extras}
       .replace(/```/g, "")
       .trim();
 
-    console.log("CLEANED:", cleaned);
-
     // ============================================================
     // PARSE JSON SAFELY
     // ============================================================
-    let parsed;
+    let parsed: FitnessPlan;
     try {
       parsed = JSON.parse(cleaned);
     } catch (err) {
@@ -115,12 +133,6 @@ Extras: ${extras}
         { status: 500 }
       );
     }
-
-    // ============================================================
-    // NOTHING TO NORMALIZE — the schema is fixed
-    // ============================================================
-
-    console.log("FINAL PLAN:", parsed);
 
     return NextResponse.json(parsed);
   } catch (err) {

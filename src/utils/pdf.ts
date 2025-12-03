@@ -1,6 +1,7 @@
 import jsPDF from "jspdf";
+import { FitnessPlan } from "@/types";
 
-export function exportPlanToPDF(plan) {
+export function exportPlanToPDF(plan: FitnessPlan) {
   const doc = new jsPDF();
   let y = 15;
 
@@ -50,28 +51,31 @@ export function exportPlanToPDF(plan) {
   doc.text("Diet Plan", 10, y);
   y += 8;
 
-  const diet = plan.dietPlan || {};
+  const diet = plan.dietPlan;
 
-  Object.keys(diet).forEach((meal) => {
-    const pretty = meal.charAt(0).toUpperCase() + meal.slice(1);
+  if (diet) {
+    (Object.keys(diet) as Array<keyof typeof diet>).forEach((meal) => {
+      const mealName = String(meal);
+      const pretty = mealName.charAt(0).toUpperCase() + mealName.slice(1);
 
-    doc.setFontSize(13);
-    doc.text(pretty, 10, y);
-    y += 6;
+      doc.setFontSize(13);
+      doc.text(pretty, 10, y);
+      y += 6;
 
-    (diet[meal] || []).forEach((item) => {
-      doc.setFontSize(10);
-      doc.text(`• ${item.name}`, 14, y);
-      y += 5;
+      (diet[meal] || []).forEach((item) => {
+        doc.setFontSize(10);
+        doc.text(`• ${item}`, 14, y);
+        y += 5;
 
-      if (y > 270) {
-        doc.addPage();
-        y = 15;
-      }
+        if (y > 270) {
+          doc.addPage();
+          y = 15;
+        }
+      });
+
+      y += 4;
     });
-
-    y += 4;
-  });
+  }
 
   // ---------- AI TIPS ----------
   doc.addPage();

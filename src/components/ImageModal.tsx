@@ -2,8 +2,13 @@
 
 import { useEffect, useState } from "react";
 
-export default function ImageModal({ prompt, onClose }) {
-  const [imgUrl, setImgUrl] = useState(null);
+interface ImageModalProps {
+  prompt: string;
+  onClose: () => void;
+}
+
+export default function ImageModal({ prompt, onClose }: ImageModalProps) {
+  const [imgUrl, setImgUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -33,7 +38,7 @@ export default function ImageModal({ prompt, onClose }) {
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
       <div className="bg-white dark:bg-gray-800 rounded-lg p-4 max-w-md w-full relative">
-        
+
         <button
           onClick={onClose}
           className="absolute top-2 right-2 text-black dark:text-white"
